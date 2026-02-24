@@ -1,0 +1,17 @@
+node_modules
+# Keep environment variables out of version control
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Env
+.env
+
+# Prisma
+prisma/migrations/**/migration_lock.toml
+
+# OS / Editor
+.DS_Store
+.idea/
+.vscode/

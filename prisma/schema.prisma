@@ -1,0 +1,152 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Allergies {
+  allergy_id    Int             @id @default(autoincrement())
+  allergy_name  String
+  description   String?
+  UserAllergies UserAllergies[]
+}
+
+model Appointments {
+  appointment_id   Int      @id @default(autoincrement())
+  user_id          Int
+  appointment_date DateTime
+  reason           String?
+  notes            String?
+  user             Users    @relation(fields: [user_id], references: [user_id])
+}
+
+model BloodPressure {
+  bp_id            Int      @id @default(autoincrement())
+  user_id          Int
+  systolic         Int
+  diastolic        Int
+  measurement_date DateTime
+  notes            String?
+  user             Users    @relation(fields: [user_id], references: [user_id])
+}
+
+model Diseases {
+  disease_id   Int           @id @default(autoincrement())
+  disease_name String
+  description  String?
+  UserDisease  UserDisease[]
+}
+
+model GlucoseLevels {
+  glucose_id       Int      @id @default(autoincrement())
+  user_id          Int
+  glucose_level    Decimal
+  measurement_time DateTime
+  notes            String?
+  user             Users    @relation(fields: [user_id], references: [user_id])
+}
+
+model HealthMetrics {
+  metric_id     Int      @id @default(autoincrement())
+  user_id       Int
+  height_cm     Decimal?
+  weight_kg     Decimal?
+  bmi           Decimal?
+  recorded_date DateTime
+  user          Users    @relation(fields: [user_id], references: [user_id])
+}
+
+model LabTests {
+  lab_test_id  Int      @id @default(autoincrement())
+  user_id      Int
+  test_type    String
+  result_value String?
+  result_date  DateTime
+  user         Users    @relation(fields: [user_id], references: [user_id])
+}
+
+model MedicationReminder {
+  reminder_id        Int             @id @default(autoincrement())
+  user_medication_id Int
+  reminder_time      String
+  is_active          Boolean?        @default(true)
+  user_medication    UserMedications @relation(fields: [user_medication_id], references: [user_medication_id])
+}
+
+model MedicationTypes {
+  medication_type_id Int           @id @default(autoincrement())
+  medication_name    String
+  description        String?
+  Medications        Medications[]
+}
+
+model Medications {
+  medication_id      Int               @id @default(autoincrement())
+  medication_type_id Int
+  generic_name       String?
+  brand_name         String?
+  medication_type    MedicationTypes   @relation(fields: [medication_type_id], references: [medication_type_id])
+  UserMedications    UserMedications[]
+}
+
+model NutritionGuidelines {
+  guideline_id Int     @id @default(autoincrement())
+  user_id      Int
+  title        String?
+  description  String?
+  user         Users   @relation(fields: [user_id], references: [user_id])
+}
+
+model UserAllergies {
+  user_allergy_id Int       @id @default(autoincrement())
+  user_id         Int
+  allergy_id      Int
+  notes           String?
+  allergy         Allergies @relation(fields: [allergy_id], references: [allergy_id])
+  user            Users     @relation(fields: [user_id], references: [user_id])
+}
+
+model UserDisease {
+  user_id    Int
+  disease_id Int
+  disease    Diseases @relation(fields: [disease_id], references: [disease_id])
+  user       Users    @relation(fields: [user_id], references: [user_id])
+
+  @@id([user_id, disease_id])
+}
+
+model UserMedications {
+  user_medication_id Int                  @id @default(autoincrement())
+  user_id            Int
+  medication_id      Int
+  dosage             String?
+  frequency          String?
+  start_date         DateTime?
+  end_date           DateTime?
+  medication         Medications          @relation(fields: [medication_id], references: [medication_id])
+  user               Users                @relation(fields: [user_id], references: [user_id])
+  MedicationReminder MedicationReminder[]
+}
+
+model Users {
+  user_id             Int                   @id @default(autoincrement())
+  first_name          String
+  last_name           String
+  email               String                @unique
+  password            String
+  date_of_birth       DateTime?
+  gender              Boolean
+  registration_date   DateTime?
+  Appointments        Appointments[]
+  BloodPressure       BloodPressure[]
+  GlucoseLevels       GlucoseLevels[]
+  HealthMetrics       HealthMetrics[]
+  LabTests            LabTests[]
+  NutritionGuidelines NutritionGuidelines[]
+  UserAllergies       UserAllergies[]
+  UserDisease         UserDisease[]
+  UserMedications     UserMedications[]
+}
