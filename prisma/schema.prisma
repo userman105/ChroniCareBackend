@@ -140,6 +140,7 @@ model Users {
   date_of_birth       DateTime?
   gender              Boolean
   registration_date   DateTime?
+  is_activated        Boolean               @default(false)
   Appointments        Appointments[]
   BloodPressure       BloodPressure[]
   GlucoseLevels       GlucoseLevels[]
@@ -149,4 +150,17 @@ model Users {
   UserAllergies       UserAllergies[]
   UserDisease         UserDisease[]
   UserMedications     UserMedications[]
+  UserOtp             UserOtp[]
+}
+
+model UserOtp {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  otp_hash   String
+  expires_at DateTime
+  created_at DateTime @default(now())
+
+  Users Users @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@index([user_id])
 }
