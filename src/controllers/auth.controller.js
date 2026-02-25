@@ -1,5 +1,7 @@
 const bcrypt = require('bcrypt');
 const prisma = require('../config/prisma');
+const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const generateOtp = require('../utils/otp');
 const sendOtpEmail = require('../services/email.service');
 
@@ -65,7 +67,75 @@ const register = async (req, res, next) => {
     }
 };
 
+const login = async (req, res, next) => {
+    try {
+        const { email, password } = req.body;
+
+        if (!email || !password) {
+            return res.status(400).json({ message: 'Email and password are required' });
+        }
+
+        const user = await prisma.users.findUnique({
+            where: { email },
+        });
+
+        if (!user) {
+            return res.status(401).json({ message: 'Invalid credentials' });
+        }
+
+        if (!user.is_activated) {
+            return res.status(403).json({ message: 'Account not activated' });
+        }
+
+        const passwordMatch = await bcrypt.compare(password, user.password);
+        if (!passwordMatch) {
+            return res.status(401).json({ message: 'Invalid credentials' });
+        }
+
+        const accessToken = jwt.sign(
+            { user_id: user.user_id },
+            process.env.JWT_SECRET,
+            { expiresIn: '15m' }
+        );
+
+        const refreshToken = crypto.randomUUID();
+        const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+
+        const expiresAt = new Date(
+            Date.now() + 7 * 24 * 60 * 60 * 1000 // 7 days
+        );
+
+        await prisma.userSession.create({
+            data: {
+                user_id: user.user_id,
+                refresh_token: hashedRefreshToken,
+                expires_at: expiresAt,
+            },
+        });
+
+        await prisma.userSession.deleteMany({
+            where: {
+                user_id: user.user_id,
+                expires_at: { lt: new Date() },
+            },
+        });
+
+        return res.status(200).json({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+            token_type: 'Bearer',
+            expires_in: 900, // 15 minutes
+        });
+
+    } catch (error) {
+        next(error);
+    }
+};
+
 const verifyOtp = async (req, res) => {
+    try{
+
+
     const { email, otp } = req.body;
 
     const user = await prisma.users.findUnique({
@@ -104,9 +174,67 @@ const verifyOtp = async (req, res) => {
         where: { user_id: user.user_id },
     });
 
+        await prisma.$transaction([
+            prisma.users.update({
+                where: { user_id: user.user_id },
+                data: { is_activated: true },
+            }),
+            prisma.userOtp.deleteMany({
+                where: { user_id: user.user_id },
+            }),
+        ]);
+
     res.json({ message: 'Account activated successfully' });
+
+
+    }
+    catch(error) {
+        next(error);
+    }
 };
 
-module.exports = { register };
-module.exports = { verifyOtp}
+const logout = async (req, res, next) => {
+    try {
+        const { refresh_token } = req.body;
+
+        if (!refresh_token) {
+            return res.status(400).json({ message: 'Refresh token is required' });
+        }
+
+        const sessions = await prisma.userSession.findMany({
+            where: {
+                expires_at: { gt: new Date() },
+            },
+        });
+
+        let sessionId = null;
+
+        for (const session of sessions) {
+            const match = await bcrypt.compare(refresh_token, session.refresh_token);
+            if (match) {
+                sessionId = session.id;
+                break;
+            }
+        }
+
+        if (!sessionId) {
+            return res.status(401).json({ message: 'Invalid refresh token' });
+        }
+
+        await prisma.userSession.delete({
+            where: { id: sessionId },
+        });
+
+        return res.status(200).json({ message: 'Logged out successfully' });
+
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+module.exports.logout = logout;
+module.exports.register = register;
+module.exports.verifyOtp = verifyOtp;
+module.exports.login = login;
 
