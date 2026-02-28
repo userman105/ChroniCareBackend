@@ -16,7 +16,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // app.use('/api/users', userRoutes);
 
-app.use((err, req, res) => {
+app.use((err, req, res, next) => {
     console.error(err);
     res.status(500).json({ error: 'Internal Server Error' });
 });
