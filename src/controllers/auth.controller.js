@@ -20,6 +20,17 @@ const register = async (req, res, next) => {
             return res.status(400).json({ message: 'Missing required fields' });
         }
 
+        let parsedDob = null;
+        if (date_of_birth) {
+            parsedDob = new Date(`${date_of_birth}T00:00:00.000Z`);
+
+            if (isNaN(parsedDob.getTime())) {
+                return res.status(400).json({
+                    message: 'Invalid date_of_birth format. Use YYYY-MM-DD',
+                });
+            }
+        }
+
         const existingUser = await prisma.users.findUnique({
             where: { email },
         });
@@ -37,12 +48,13 @@ const register = async (req, res, next) => {
                 email,
                 password: hashedPassword,
                 gender,
-                date_of_birth,
+                date_of_birth: parsedDob, // ✅ FIXED
                 registration_date: new Date(),
                 is_activated: false,
             },
         });
 
+        // 🔐 OTP generation
         const otp = generateOtp();
         const otpHash = await bcrypt.hash(otp, 10);
 
@@ -50,7 +62,7 @@ const register = async (req, res, next) => {
             data: {
                 user_id: user.user_id,
                 otp_hash: otpHash,
-                expires_at: new Date(Date.now() + 10 * 60 * 1000), // 10 min
+                expires_at: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
             },
         });
 
