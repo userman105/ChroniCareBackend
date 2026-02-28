@@ -9,7 +9,7 @@ generator client {
 
 model Allergies {
   allergy_id    Int             @id @default(autoincrement())
-  allergy_name  String
+  allergy_name  String?
   description   String?
   UserAllergies UserAllergies[]
 }
@@ -24,13 +24,14 @@ model Appointments {
 }
 
 model BloodPressure {
-  bp_id            Int      @id @default(autoincrement())
+  bp_id            Int        @id @default(autoincrement())
   user_id          Int
   systolic         Int
   diastolic        Int
   measurement_date DateTime
   notes            String?
-  user             Users    @relation(fields: [user_id], references: [user_id])
+  user             Users      @relation(fields: [user_id], references: [user_id])
+  UserLogs         UserLogs[]
 }
 
 model Diseases {
@@ -41,22 +42,24 @@ model Diseases {
 }
 
 model GlucoseLevels {
-  glucose_id       Int      @id @default(autoincrement())
+  glucose_id       Int        @id @default(autoincrement())
   user_id          Int
   glucose_level    Decimal
   measurement_time DateTime
   notes            String?
-  user             Users    @relation(fields: [user_id], references: [user_id])
+  user             Users      @relation(fields: [user_id], references: [user_id])
+  UserLogs         UserLogs[]
 }
 
 model HealthMetrics {
-  metric_id     Int      @id @default(autoincrement())
+  metric_id     Int        @id @default(autoincrement())
   user_id       Int
   height_cm     Decimal?
   weight_kg     Decimal?
   bmi           Decimal?
   recorded_date DateTime
-  user          Users    @relation(fields: [user_id], references: [user_id])
+  user          Users      @relation(fields: [user_id], references: [user_id])
+  UserLogs      UserLogs[]
 }
 
 model LabTests {
@@ -152,6 +155,7 @@ model Users {
   UserMedications     UserMedications[]
   UserOtp             UserOtp[]
   UserSession         UserSession[]
+  UserLogs            UserLogs[]
 }
 
 model UserOtp {
@@ -175,6 +179,26 @@ model UserSession {
   created_at        DateTime @default(now())
 
   Users Users @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@index([user_id])
+}
+
+model UserLogs {
+  log_id  Int @id @default(autoincrement())
+  user_id Int
+
+  blood_pressure_id Int?
+  glucose_id        Int?
+  metric_id         Int?
+
+  notes    String?
+  log_date DateTime @default(now())
+
+  user Users @relation(fields: [user_id], references: [user_id])
+
+  BloodPressure BloodPressure? @relation(fields: [blood_pressure_id], references: [bp_id])
+  GlucoseLevels GlucoseLevels? @relation(fields: [glucose_id], references: [glucose_id])
+  HealthMetrics HealthMetrics? @relation(fields: [metric_id], references: [metric_id])
 
   @@index([user_id])
 }
