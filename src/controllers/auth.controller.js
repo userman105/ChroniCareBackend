@@ -48,13 +48,12 @@ const register = async (req, res, next) => {
                 email,
                 password: hashedPassword,
                 gender,
-                date_of_birth: parsedDob, // ✅ FIXED
+                date_of_birth: parsedDob,
                 registration_date: new Date(),
                 is_activated: false,
             },
         });
 
-        // 🔐 OTP generation
         const otp = generateOtp();
         const otpHash = await bcrypt.hash(otp, 10);
 
@@ -79,6 +78,19 @@ const register = async (req, res, next) => {
     }
 };
 
+const generateFingerprint = (req) => {
+    const userAgent = req.headers['user-agent'] || '';
+    const ip =
+        req.headers['x-forwarded-for'] ||
+        req.socket.remoteAddress ||
+        '';
+
+    return crypto
+        .createHash('sha256')
+        .update(`${userAgent}|${ip}`)
+        .digest('hex');
+};
+
 const login = async (req, res, next) => {
     try {
         const { email, password } = req.body;
@@ -91,12 +103,8 @@ const login = async (req, res, next) => {
             where: { email },
         });
 
-        if (!user) {
+        if (!user || !user.is_activated) {
             return res.status(401).json({ message: 'Invalid credentials' });
-        }
-
-        if (!user.is_activated) {
-            return res.status(403).json({ message: 'Account not activated' });
         }
 
         const passwordMatch = await bcrypt.compare(password, user.password);
@@ -107,20 +115,28 @@ const login = async (req, res, next) => {
         const accessToken = jwt.sign(
             { user_id: user.user_id },
             process.env.JWT_SECRET,
-            { expiresIn: '15m' }
+            { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
         );
 
         const refreshToken = crypto.randomUUID();
         const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
 
+        const fingerprint = generateFingerprint(req);
+
         const expiresAt = new Date(
-            Date.now() + 7 * 24 * 60 * 60 * 1000 // 7 days
+            Date.now() +
+            Number(process.env.REFRESH_TOKEN_DAYS || 7) *
+            24 *
+            60 *
+            60 *
+            1000
         );
 
         await prisma.userSession.create({
             data: {
                 user_id: user.user_id,
                 refresh_token: hashedRefreshToken,
+                token_fingerprint: fingerprint, // ✅ FIX
                 expires_at: expiresAt,
             },
         });
@@ -132,13 +148,12 @@ const login = async (req, res, next) => {
             },
         });
 
-        return res.status(200).json({
+        res.status(200).json({
             access_token: accessToken,
             refresh_token: refreshToken,
             token_type: 'Bearer',
-            expires_in: 900, // 15 minutes
+            expires_in: 15 * 60,
         });
-
     } catch (error) {
         next(error);
     }
