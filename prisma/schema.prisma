@@ -68,6 +68,7 @@ model LabTests {
   test_type    String
   result_value String?
   result_date  DateTime
+  image_path   String?
   user         Users    @relation(fields: [user_id], references: [user_id])
 }
 

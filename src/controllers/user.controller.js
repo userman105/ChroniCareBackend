@@ -2,7 +2,7 @@ const prisma = require('../config/prisma');
 
 const addDailyLog = async (req, res, next) => {
     try {
-        const user_id = req.user.user_id; // from auth middleware
+        const user_id = req.user.user_id;
         const { type, data } = req.body;
 
         if (!type || !data) {
@@ -91,6 +91,38 @@ const addDailyLog = async (req, res, next) => {
             message: 'Daily log recorded successfully',
             log_id: log.log_id,
             type,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.addLabTest = async (req, res, next) => {
+    try {
+        const user_id = req.user.user_id;
+        const { test_type, result_value, result_date } = req.body;
+
+        if (!test_type || !result_date) {
+            return res.status(400).json({
+                message: 'test_type and result_date are required',
+            });
+        }
+
+        const image_path = req.file ? req.file.path : null;
+
+        const labTest = await prisma.labTests.create({
+            data: {
+                user_id,
+                test_type,
+                result_value: result_value || null,
+                result_date: new Date(result_date),
+                image_path,
+            },
+        });
+
+        res.status(201).json({
+            message: 'Lab test uploaded successfully',
+            lab_test_id: labTest.lab_test_id,
         });
     } catch (error) {
         next(error);
