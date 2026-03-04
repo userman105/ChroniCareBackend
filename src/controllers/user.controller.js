@@ -129,6 +129,107 @@ exports.addLabTest = async (req, res, next) => {
     }
 };
 
-module.exports = {
-    addDailyLog,
+const addUserDisease = async (req, res, next) => {
+    try {
+        const user_id = req.user.user_id;
+        const { disease_name } = req.body;
+
+        if (!disease_name) {
+            return res.status(400).json({ message: 'disease_name is required' });
+        }
+
+        const allowedDiseases = ['DIABETES', 'HYPERTENSION', 'ASTHMA'];
+
+        if (!allowedDiseases.includes(disease_name)) {
+            return res.status(400).json({
+                message: 'Invalid disease name',
+                allowed: allowedDiseases,
+            });
+        }
+
+        const disease = await prisma.diseases.findUnique({
+            where: { disease_name },
+        });
+
+        if (!disease) {
+            return res.status(404).json({ message: 'Disease not found' });
+        }
+
+        const existing = await prisma.userDisease.findUnique({
+            where: {
+                user_id_disease_id: {
+                    user_id,
+                    disease_id: disease.disease_id,
+                },
+            },
+        });
+
+        if (existing) {
+            return res.status(409).json({ message: 'Disease already added' });
+        }
+
+        await prisma.userDisease.create({
+            data: {
+                user_id,
+                disease_id: disease.disease_id,
+            },
+        });
+
+        res.status(201).json({
+            message: 'Disease added successfully',
+            disease: disease_name,
+        });
+    } catch (error) {
+        next(error);
+    }
 };
+
+const addUserAllergy = async (req, res, next) => {
+    try {
+        const user_id = req.user.user_id;
+        const { allergy_id, notes } = req.body;
+
+        if (!allergy_id) {
+            return res.status(400).json({ message: 'allergy_id is required' });
+        }
+
+        const allergy = await prisma.allergies.findUnique({
+            where: { allergy_id },
+        });
+
+        if (!allergy) {
+            return res.status(404).json({ message: 'Allergy not found' });
+        }
+
+        const existing = await prisma.userAllergies.findFirst({
+            where: {
+                user_id,
+                allergy_id,
+            },
+        });
+
+        if (existing) {
+            return res.status(409).json({ message: 'Allergy already added' });
+        }
+
+        const userAllergy = await prisma.userAllergies.create({
+            data: {
+                user_id,
+                allergy_id,
+                notes: notes || null,
+            },
+        });
+
+        res.status(201).json({
+            message: 'Allergy added successfully',
+            allergy: allergy.allergy_name,
+            notes: userAllergy.notes,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+
+module.exports = {addDailyLog, addUserDisease, addUserAllergy};

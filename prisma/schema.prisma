@@ -36,9 +36,15 @@ model BloodPressure {
 
 model Diseases {
   disease_id   Int           @id @default(autoincrement())
-  disease_name String
+  disease_name DiseaseName
   description  String?
   UserDisease  UserDisease[]
+}
+
+enum DiseaseName {
+  DIABETES
+  HYPERTENSION
+  ASTHMA
 }
 
 model GlucoseLevels {
