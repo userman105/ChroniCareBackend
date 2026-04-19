@@ -97,7 +97,7 @@ const addDailyLog = async (req, res, next) => {
     }
 };
 
-exports.addLabTest = async (req, res, next) => {
+const addLabTest = async (req, res, next) => {
     try {
         const user_id = req.user.user_id;
         const { test_type, result_value, result_date } = req.body;
@@ -232,4 +232,9 @@ const addUserAllergy = async (req, res, next) => {
 
 
 
-module.exports = {addDailyLog, addUserDisease, addUserAllergy};
+module.exports = {
+    addDailyLog,
+    addLabTest,
+    addUserDisease,
+    addUserAllergy,
+};
