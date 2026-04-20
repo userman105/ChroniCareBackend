@@ -187,6 +187,14 @@ const login = async (req, res, next) => {
             refresh_token: refreshToken,
             token_type: 'Bearer',
             expires_in: 15 * 60,
+
+            user: {
+                first_name: user.first_name,
+                last_name: user.last_name,
+                email: user.email,
+                gender: user.gender,
+                date_of_birth: user.date_of_birth,
+            }
         });
     } catch (error) {
         next(error);
