@@ -1,4 +1,7 @@
 const prisma = require('../config/prisma');
+const axios = require("axios");
+const FormData = require("form-data");
+const fs = require("fs");
 
 const addDailyLog = async (req, res, next) => {
     try {
@@ -97,37 +100,6 @@ const addDailyLog = async (req, res, next) => {
     }
 };
 
-const addLabTest = async (req, res, next) => {
-    try {
-        const user_id = req.user.user_id;
-        const { test_type, result_value, result_date } = req.body;
-
-        if (!test_type || !result_date) {
-            return res.status(400).json({
-                message: 'test_type and result_date are required',
-            });
-        }
-
-        const image_path = req.file ? req.file.path : null;
-
-        const labTest = await prisma.labTests.create({
-            data: {
-                user_id,
-                test_type,
-                result_value: result_value || null,
-                result_date: new Date(result_date),
-                image_path,
-            },
-        });
-
-        res.status(201).json({
-            message: 'Lab test uploaded successfully',
-            lab_test_id: labTest.lab_test_id,
-        });
-    } catch (error) {
-        next(error);
-    }
-};
 
 const addUserDisease = async (req, res, next) => {
     try {
@@ -231,6 +203,63 @@ const addUserAllergy = async (req, res, next) => {
 };
 
 
+const addLabTest = async (req, res, next) => {
+    try {
+        const { test_type, result_value, result_date } = req.body;
+        const image_path = req.file ? req.file.path : null;
+
+        let ocrResponse = null;
+
+        if (image_path) {
+            const formData = new FormData();
+            const fs = require('fs');
+
+            formData.append('file', fs.createReadStream(image_path));
+
+            const response = await axios.post(
+                "http://127.0.0.1:8000/ocr", // your FastAPI
+                formData,
+                {
+                    headers: formData.getHeaders(),
+                }
+            );
+
+            ocrResponse = response.data;
+        }
+
+
+        if (req.user.is_guest) {
+            return res.status(200).json({
+                message: "Guest OCR processed",
+                ocr_text: ocrResponse?.text || "",
+                ocr_lines: ocrResponse?.lines || [],
+            });
+        }
+
+        const user_id = req.user.user_id;
+
+        const labTest = await prisma.labTests.create({
+            data: {
+                user_id,
+                test_type,
+                result_value: result_value || null,
+                result_date: new Date(result_date),
+                image_path,
+            },
+        });
+
+        return res.status(201).json({
+            message: 'Lab test uploaded successfully',
+            lab_test_id: labTest.lab_test_id,
+            ocr_text: ocrResponse?.text || "",
+            ocr_lines: ocrResponse?.lines || [],
+        });
+
+    } catch (error) {
+        console.error(error);
+        next(error);
+    }
+};
 
 module.exports = {
     addDailyLog,
