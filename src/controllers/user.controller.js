@@ -218,6 +218,7 @@ const addLabTest = async (req, res, next) => {
 
             const response = await axios.post(
                 "http://127.0.0.1:8000/ocr", // your FastAPI
+                //ngrok "https://ea3c-197-46-56-194.ngrok-free.app"
                 formData,
                 {
                     headers: formData.getHeaders(),

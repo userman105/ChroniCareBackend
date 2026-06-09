@@ -77,7 +77,7 @@ const register = async (req, res, next) => {
                 last_name,
                 email,
                 password: hashedPassword,
-                gender: genderBool, // ✅ BOOLEAN stored
+                gender: genderBool,
                 date_of_birth: parsedDob,
                 registration_date: new Date(),
                 is_activated: false,
@@ -137,13 +137,53 @@ const login = async (req, res, next) => {
             where: { email },
         });
 
-        if (!user || !user.is_activated) {
-            return res.status(401).json({ message: 'Invalid credentials' });
+        if (!user) {
+            return res.status(401).json({
+                message: 'Invalid credentials'
+            });
         }
 
-        const passwordMatch = await bcrypt.compare(password, user.password);
+        const passwordMatch = await bcrypt.compare(
+            password,
+            user.password
+        );
+
         if (!passwordMatch) {
-            return res.status(401).json({ message: 'Invalid credentials' });
+            return res.status(401).json({
+                message: 'Invalid credentials'
+            });
+        }
+
+        if (!user.is_activated) {
+
+            // Optional: generate and send a fresh OTP automatically
+
+            const otp = generateOtp();
+            const otpHash = await bcrypt.hash(otp, 10);
+
+            await prisma.userOtp.create({
+                data: {
+                    user_id: user.user_id,
+                    otp_hash: otpHash,
+                    expires_at: new Date(
+                        Date.now() + 10 * 60 * 1000
+                    ),
+                },
+            });
+
+            try {
+                await sendOtpEmail(user.email, otp);
+            } catch (err) {
+                console.error(
+                    'Failed to send login OTP:',
+                    err.message
+                );
+            }
+
+            return res.status(403).json({
+                message: 'Account not activated',
+                email: user.email,
+            });
         }
 
         const accessToken = jwt.sign(
