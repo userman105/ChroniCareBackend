@@ -226,6 +226,7 @@ const login = async (req, res, next) => {
             access_token: accessToken,
             refresh_token: refreshToken,
             token_type: 'Bearer',
+            user_id: user.user_id,
             expires_in: 15 * 60,
 
             user: {
