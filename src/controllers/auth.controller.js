@@ -206,6 +206,13 @@ const login = async (req, res, next) => {
             1000
         );
 
+
+        await prisma.userSession.deleteMany({
+            where: {
+                token_fingerprint: fingerprint,
+            },
+        });
+
         await prisma.userSession.create({
             data: {
                 user_id: user.user_id,
@@ -215,10 +222,13 @@ const login = async (req, res, next) => {
             },
         });
 
+
         await prisma.userSession.deleteMany({
             where: {
                 user_id: user.user_id,
-                expires_at: { lt: new Date() },
+                expires_at: {
+                    lt: new Date(),
+                },
             },
         });
 
@@ -356,7 +366,150 @@ const resendOtp = async (req, res) => {
     res.json({ message: "OTP resent" });
 };
 
+const refreshToken = async (req, res, next) => {
+    try {
+        const { refresh_token } = req.body;
 
+        if (!refresh_token) {
+            return res.status(400).json({ message: 'Refresh token is required' });
+        }
+
+        const sessions = await prisma.userSession.findMany({
+            where: { expires_at: { gt: new Date() } },
+        });
+
+        let session = null;
+        for (const s of sessions) {
+            const match = await bcrypt.compare(refresh_token, s.refresh_token);
+            if (match) {
+                session = s;
+                break;
+            }
+        }
+
+        if (!session) {
+            return res.status(401).json({ message: 'Invalid or expired refresh token' });
+        }
+
+        const accessToken = jwt.sign(
+            { user_id: session.user_id },
+            process.env.JWT_SECRET,
+            { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
+        );
+
+        res.status(200).json({
+            access_token: accessToken,
+            token_type: 'Bearer',
+            expires_in: 15 * 60,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+const forgotPassword = async (req, res, next) => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({ message: 'Email is required' });
+        }
+
+        const user = await prisma.users.findUnique({ where: { email } });
+
+        // Don't reveal whether the email exists — respond the same either way
+        if (!user) {
+            return res.status(200).json({
+                message: 'If this email exists, a reset code has been sent',
+            });
+        }
+
+        const otp = generateOtp();
+        const otpHash = await bcrypt.hash(otp, 10);
+
+        await prisma.userOtp.create({
+            data: {
+                user_id: user.user_id,
+                otp_hash: otpHash,
+                expires_at: new Date(Date.now() + 10 * 60 * 1000),
+            },
+        });
+
+        try {
+            await sendOtpEmail(user.email, otp);
+        } catch (err) {
+            console.error('Failed to send reset OTP:', err.message);
+        }
+
+        res.status(200).json({
+            message: 'If this email exists, a reset code has been sent',
+            email: user.email,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+const resetPassword = async (req, res, next) => {
+    try {
+        const { email, otp, new_password } = req.body;
+
+        if (!email || !otp || !new_password) {
+            return res.status(400).json({
+                message: 'Email, otp and new_password are required',
+            });
+        }
+
+        const user = await prisma.users.findUnique({ where: { email } });
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const otpRecord = await prisma.userOtp.findFirst({
+            where: { user_id: user.user_id },
+            orderBy: { created_at: 'desc' },
+        });
+
+        if (!otpRecord) {
+            return res.status(400).json({ message: 'OTP not found' });
+        }
+
+        if (otpRecord.expires_at < new Date()) {
+            return res.status(400).json({ message: 'OTP expired' });
+        }
+
+        const isValid = await bcrypt.compare(otp, otpRecord.otp_hash);
+
+        if (!isValid) {
+            return res.status(400).json({ message: 'Invalid OTP' });
+        }
+
+        const hashedPassword = await bcrypt.hash(new_password, 10);
+
+        await prisma.$transaction([
+            prisma.users.update({
+                where: { user_id: user.user_id },
+                data: { password: hashedPassword },
+            }),
+            prisma.userOtp.deleteMany({
+                where: { user_id: user.user_id },
+            }),
+            // Invalidate all existing sessions for security
+            prisma.userSession.deleteMany({
+                where: { user_id: user.user_id },
+            }),
+        ]);
+
+        res.status(200).json({ message: 'Password reset successfully' });
+    } catch (error) {
+        next(error);
+    }
+};
+
+module.exports.forgotPassword = forgotPassword;
+module.exports.resetPassword  = resetPassword;
+module.exports.refreshToken = refreshToken;
 module.exports.logout = logout;
 module.exports.register = register;
 module.exports.verifyOtp = verifyOtp;

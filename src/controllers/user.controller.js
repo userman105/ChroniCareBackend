@@ -217,8 +217,8 @@ const addLabTest = async (req, res, next) => {
             formData.append('file', fs.createReadStream(image_path));
 
             const response = await axios.post(
-                "http://127.0.0.1:8000/ocr", // your FastAPI
-                //ngrok "https://ea3c-197-46-56-194.ngrok-free.app"
+               "http://127.0.0.1:8000/ocr", // your FastAPI
+                //"https://4d18-156-193-133-185.ngrok-free.app/ocr",
                 formData,
                 {
                     headers: formData.getHeaders(),
@@ -262,9 +262,61 @@ const addLabTest = async (req, res, next) => {
     }
 };
 
+const getBloodPressureLogs = async (req, res, next) => {
+    try {
+        const user_id = req.user.user_id;
+        if (!user_id) return res.json({ data: [] });
+
+        const logs = await prisma.bloodPressure.findMany({
+            where: { user_id },
+            orderBy: { measurement_date: 'asc' },
+        });
+
+        res.json({ data: logs });
+    } catch (error) {
+        next(error);
+    }
+};
+
+const getGlucoseLogs = async (req, res, next) => {
+    try {
+        const user_id = req.user.user_id;
+        if (!user_id) return res.json({ data: [] });
+
+        const logs = await prisma.glucoseLevels.findMany({
+            where: { user_id },
+            orderBy: { measurement_time: 'asc' },
+        });
+
+        res.json({ data: logs });
+    } catch (error) {
+        next(error);
+    }
+};
+
+const getHealthMetricsLogs = async (req, res, next) => {
+    try {
+        const user_id = req.user.user_id;
+        if (!user_id) return res.json({ data: [] });
+
+        const logs = await prisma.healthMetrics.findMany({
+            where: { user_id },
+            orderBy: { recorded_date: 'asc' },
+        });
+
+        res.json({ data: logs });
+    } catch (error) {
+        next(error);
+    }
+};
+
+
 module.exports = {
     addDailyLog,
     addLabTest,
     addUserDisease,
     addUserAllergy,
+    getBloodPressureLogs,
+    getGlucoseLogs,
+    getHealthMetricsLogs,
 };
