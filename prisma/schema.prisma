@@ -163,6 +163,8 @@ model Users {
   UserOtp             UserOtp[]
   UserSession         UserSession[]
   UserLogs            UserLogs[]
+  Symptoms            Symptoms[]
+  FoodLogs            FoodLogs[]
 }
 
 model UserOtp {
@@ -190,6 +192,36 @@ model UserSession {
   @@index([user_id])
 }
 
+model Symptoms {
+  symptom_id  Int        @id @default(autoincrement())
+  user_id     Int
+  symptom     String
+  severity    Int
+  notes       String?
+  recorded_at DateTime   @default(now())
+  user        Users      @relation(fields: [user_id], references: [user_id])
+  UserLogs    UserLogs[]
+
+  @@index([user_id])
+}
+
+model FoodLogs {
+  food_log_id Int        @id @default(autoincrement())
+  user_id     Int
+  name        String
+  meal_type   String?
+  calories    Int?
+  carbs       Decimal?
+  protein     Decimal?
+  fat         Decimal?
+  notes       String?
+  logged_at   DateTime   @default(now())
+  user        Users      @relation(fields: [user_id], references: [user_id])
+  UserLogs    UserLogs[]
+
+  @@index([user_id])
+}
+
 model UserLogs {
   log_id  Int @id @default(autoincrement())
   user_id Int
@@ -197,6 +229,8 @@ model UserLogs {
   blood_pressure_id Int?
   glucose_id        Int?
   metric_id         Int?
+  symptom_id        Int?
+  food_log_id       Int?
 
   notes    String?
   log_date DateTime @default(now())
@@ -206,6 +240,8 @@ model UserLogs {
   BloodPressure BloodPressure? @relation(fields: [blood_pressure_id], references: [bp_id])
   GlucoseLevels GlucoseLevels? @relation(fields: [glucose_id], references: [glucose_id])
   HealthMetrics HealthMetrics? @relation(fields: [metric_id], references: [metric_id])
+  Symptoms      Symptoms?      @relation(fields: [symptom_id], references: [symptom_id])
+  FoodLogs      FoodLogs?      @relation(fields: [food_log_id], references: [food_log_id])
 
   @@index([user_id])
 }

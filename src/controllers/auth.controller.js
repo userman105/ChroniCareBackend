@@ -452,7 +452,7 @@ const forgotPassword = async (req, res, next) => {
 
 const resetPassword = async (req, res, next) => {
     try {
-        const { email, otp, new_password } = req.body;
+        const { email, otp, new_password, refresh_token } = req.body; // ← add refresh_token
 
         if (!email || !otp || !new_password) {
             return res.status(400).json({
@@ -485,6 +485,24 @@ const resetPassword = async (req, res, next) => {
             return res.status(400).json({ message: 'Invalid OTP' });
         }
 
+        // Find the current session to preserve it (if refresh_token was sent)
+        let currentSessionId = null;
+        if (refresh_token) {
+            const sessions = await prisma.userSession.findMany({
+                where: {
+                    user_id: user.user_id,
+                    expires_at: { gt: new Date() },
+                },
+            });
+            for (const session of sessions) {
+                const match = await bcrypt.compare(refresh_token, session.refresh_token);
+                if (match) {
+                    currentSessionId = session.id;
+                    break;
+                }
+            }
+        }
+
         const hashedPassword = await bcrypt.hash(new_password, 10);
 
         await prisma.$transaction([
@@ -495,9 +513,12 @@ const resetPassword = async (req, res, next) => {
             prisma.userOtp.deleteMany({
                 where: { user_id: user.user_id },
             }),
-            // Invalidate all existing sessions for security
             prisma.userSession.deleteMany({
-                where: { user_id: user.user_id },
+                where: {
+                    user_id: user.user_id,
+                    // Keep the current session if we found it, wipe everything otherwise
+                    ...(currentSessionId ? { NOT: { id: currentSessionId } } : {}),
+                },
             }),
         ]);
 

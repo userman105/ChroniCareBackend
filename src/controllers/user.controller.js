@@ -81,6 +81,54 @@ const addDailyLog = async (req, res, next) => {
 
             logPayload.metric_id = metrics.metric_id;
         }
+        else if (type === 'symptom') {
+            const { symptom, severity } = data;
+
+            if (!symptom || severity === undefined) {
+                return res.status(400).json({ message: 'symptom and severity are required' });
+            }
+
+            await prisma.symptoms.create({
+                data: {
+                    user_id,
+                    symptom,
+                    severity,
+                    notes: data.notes || null,
+                },
+            });
+
+            // Symptoms aren't part of UserLogs — return early
+            return res.status(201).json({
+                message: 'Symptom logged successfully',
+                type,
+            });
+        }
+
+        else if (type === 'food') {
+            const { name, meal_type, calories, carbs, protein, fat } = data;
+
+            if (!name) {
+                return res.status(400).json({ message: 'name is required' });
+            }
+
+            await prisma.foodLogs.create({
+                data: {
+                    user_id,
+                    name,
+                    meal_type: meal_type || null,
+                    calories: calories || null,
+                    carbs: carbs || null,
+                    protein: protein || null,
+                    fat: fat || null,
+                    notes: data.notes || null,
+                },
+            });
+
+            return res.status(201).json({
+                message: 'Food entry logged successfully',
+                type,
+            });
+        }
 
         else {
             return res.status(400).json({ message: 'Invalid log type' });
@@ -217,8 +265,8 @@ const addLabTest = async (req, res, next) => {
             formData.append('file', fs.createReadStream(image_path));
 
             const response = await axios.post(
-               "http://127.0.0.1:8000/ocr", // your FastAPI
-                //"https://4d18-156-193-133-185.ngrok-free.app/ocr",
+              //"http://127.0.0.1:8001/ocr", // your FastAPI
+               "https://a55b-156-193-205-137.ngrok-free.app/ocr",
                 formData,
                 {
                     headers: formData.getHeaders(),
